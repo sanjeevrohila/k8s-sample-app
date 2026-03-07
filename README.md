@@ -1,18 +1,26 @@
 # Flask Docker Application
 
 This repository contains a simple **Flask web application packaged inside a Docker image**.  
-It demonstrates how to build, run, and publish a containerized application using Docker and
-exploye different deployment strategies.
+It demonstrates how to:
+
+- Build a containerized Python application
+- Push Docker images to Docker Hub
+- Deploy the application on Kubernetes
+- Use a **RollingUpdate deployment strategy**
+- Expose the application using a **NodePort service**
 
 ---
 
-## Docker Images
+# Docker Images
 
-Two different versions of Docker images are published from this repository:
+Two different versions of Docker images are published from this repository.
 
-- `docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .`
-- `docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v2 --push .`
-  
+### Build and Push Images
+
+```bash
+docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .
+docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v2 --push .
+```
 
 Docker Hub Repository:
 
@@ -20,9 +28,9 @@ https://hub.docker.com/repository/docker/justsanjeev/application
 
 ---
 
-## Run the Application
+# Run the Application Using Docker
 
-Pull the Docker image:
+Pull the image from Docker Hub:
 
 ```bash
 docker pull justsanjeev/application-larch:v1
@@ -31,7 +39,7 @@ docker pull justsanjeev/application-larch:v1
 Run the container:
 
 ```bash
-docker run -p 3000:3000 justsanjeev/application:v1
+docker run -p 3000:3000 justsanjeev/application-larch:v1
 ```
 
 Open the application in your browser:
@@ -42,91 +50,96 @@ http://localhost:3000
 
 ---
 
-## Build the Docker Image
-
-To build the Docker image locally:
+# Build Docker Image Locally
 
 ```bash
-docker build -t justsanjeev/application:v1 .
+docker build -t justsanjeev/application-larch:v1 .
 ```
 
 ---
 
-## Push the Image to Docker Hub
-
-After building the image, push it to Docker Hub:
+# Push Image to Docker Hub
 
 ```bash
-docker push justsanjeev/application:v1
+docker push justsanjeev/application-larch:v1
 ```
-
-## Now create new images for Linux atchicture 
-```bash
-docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .
-docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .
-
-```
-
 
 ---
 
-## Project Purpose
+# Project Purpose
 
 This project demonstrates:
 
 - Creating a simple Flask web application
 - Packaging the application inside a Docker container
 - Publishing Docker images to Docker Hub
-- Running the application using Docker
-- Deploying and then change the deployment with new verson
+- Running containers locally
+- Deploying the application on Kubernetes
+- Updating the deployment using new image versions
 
 ---
 
+# Kubernetes Deployment
 
-## Create deployment, with RollingUpdates startegy with 3 replicas
+A **Deployment** is created with **3 replicas** and a **RollingUpdate strategy**.
 
-```bash
-~/simpleapp$ cat deployment.yaml 
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flask-app
   labels:
     app: flask-app
+
 spec:
   replicas: 3
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 1
+
   selector:
     matchLabels:
       app: flask-app
+
   template:
     metadata:
       labels:
         app: flask-app
+
     spec:
       containers:
       - name: flask-container
-        image: justsanjeev/application:v1
+        image: justsanjeev/application-larch:v1
+
         ports:
         - containerPort: 3000
+
         resources:
           requests:
             cpu: "100m"
             memory: "128Mi"
+
           limits:
             cpu: "500m"
             memory: "512Mi"
 ```
 
-## Create service as well
+Apply the deployment:
 
 ```bash
+kubectl apply -f deployment.yaml
+```
 
-:~/simpleapp$ cat service.yaml 
+---
+
+# Kubernetes Service
+
+A **NodePort service** exposes the application outside the cluster.
+
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -145,9 +158,36 @@ spec:
       nodePort: 30007
 ```
 
-## Explanation - Full Traffic Path
+Apply the service:
 
 ```bash
+kubectl apply -f service.yaml
+```
+
+---
+
+# Service Port Explanation
+
+```yaml
+ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+    nodePort: 30007
+```
+
+| Field | Description |
+|------|-------------|
+| protocol | Network protocol used (TCP) |
+| port | Service port inside the Kubernetes cluster |
+| targetPort | Port where the container application listens |
+| nodePort | External port exposed on every Kubernetes node |
+
+---
+
+# Full Traffic Flow
+
+```
 External User
      │
      │ http://NODE_IP:30007
@@ -167,19 +207,87 @@ Pod
 Flask Application
 ```
 
+---
 
+# Verify Kubernetes Resources
 
-## Technologies Used
+### Check Pods
+
+```bash
+kubectl get pods
+```
+
+Example:
+
+```
+flask-app-54bddcd89d-6l9bf   1/1 Running
+flask-app-54bddcd89d-8695l   1/1 Running
+flask-app-54bddcd89d-bft54   1/1 Running
+```
+
+---
+
+### Check Endpoints
+
+```bash
+kubectl get endpoints flask-service
+```
+
+Example:
+
+```
+flask-service   192.168.86.8:3000
+                192.168.86.9:3000
+                192.168.91.206:3000
+```
+
+---
+
+### Check Pods with Node Details
+
+```bash
+kubectl get pods -o wide
+```
+
+Example:
+
+```
+NAME                       READY STATUS  IP              NODE
+flask-app-xxxxx            1/1   Running 192.168.91.206  ubuntu-worker1
+flask-app-xxxxx            1/1   Running 192.168.86.8    ubuntu-worker2
+flask-app-xxxxx            1/1   Running 192.168.86.9    ubuntu-worker2
+```
+
+---
+
+# Access Application Using Port Forward
+
+If NodePort is not accessible, use port-forwarding:
+
+```bash
+kubectl port-forward --address 0.0.0.0 svc/flask-service 8080:80
+```
+
+Access application:
+
+```
+http://localhost:8080
+```
+
+---
+
+# Technologies Used
 
 - Python
 - Flask
 - Docker
+- Kubernetes
 
 ---
 
-## Author
+# Author
 
 **Sanjeev**
 
-DockerHub:  
+DockerHub  
 https://hub.docker.com/u/justsanjeev
