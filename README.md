@@ -1,7 +1,8 @@
 # Flask Docker Application
 
 This repository contains a simple **Flask web application packaged inside a Docker image**.  
-It demonstrates how to build, run, and publish a containerized application using Docker.
+It demonstrates how to build, run, and publish a containerized application using Docker and
+exploye different deployment strategies.
 
 ---
 
@@ -9,8 +10,9 @@ It demonstrates how to build, run, and publish a containerized application using
 
 Two different versions of Docker images are published from this repository:
 
-- `justsanjeev/application:v1`
-- `justsanjeev/application:v2`
+- `docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .`
+- `docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v2 --push .`
+  
 
 Docker Hub Repository:
 
@@ -23,7 +25,7 @@ https://hub.docker.com/repository/docker/justsanjeev/application
 Pull the Docker image:
 
 ```bash
-docker pull justsanjeev/application:v1
+docker pull justsanjeev/application-larch:v1
 ```
 
 Run the container:
@@ -58,6 +60,14 @@ After building the image, push it to Docker Hub:
 docker push justsanjeev/application:v1
 ```
 
+## Now create new images for Linux atchicture 
+```bash
+docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .
+docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v1 --push .
+
+```
+
+
 ---
 
 ## Project Purpose
@@ -68,8 +78,96 @@ This project demonstrates:
 - Packaging the application inside a Docker container
 - Publishing Docker images to Docker Hub
 - Running the application using Docker
+- Deploying and then change the deployment with new verson
 
 ---
+
+
+## Create deployment, with RollingUpdates startegy with 3 replicas
+
+```bash
+~/simpleapp$ cat deployment.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+  labels:
+    app: flask-app
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-container
+        image: justsanjeev/application:v1
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+```
+
+## Create service as well
+
+```bash
+
+:~/simpleapp$ cat service.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-service
+
+spec:
+  type: NodePort
+
+  selector:
+    app: flask-app
+
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      nodePort: 30007
+```
+
+## Explanation - Full Traffic Path
+
+```bash
+External User
+     │
+     │ http://NODE_IP:30007
+     ▼
+Kubernetes Node
+     │
+     │ NodePort (30007)
+     ▼
+Service
+     │
+     │ Service Port (80)
+     ▼
+Pod
+     │
+     │ Container Port (3000)
+     ▼
+Flask Application
+```
+
+
 
 ## Technologies Used
 
