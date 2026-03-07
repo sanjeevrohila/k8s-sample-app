@@ -274,6 +274,48 @@ Access application:
 http://localhost:8080
 ```
 
+
+
+
+
+# create new APP version with code changes
+
+```bash
+docker buildx build --platform linux/amd64 -t justsanjeev/application-larch:v2 --push .
+```
+
+
+
+# And deploye the new verion
+
+```bash
+~/simpleapp$ kubectl get pods
+NAME                            READY   STATUS    RESTARTS   AGE
+city-backend-7987544dd5-8rxcc   1/1     Running   0          28d
+city-backend-7987544dd5-kj5vm   1/1     Running   0          28d
+flask-app-54bddcd89d-6l9bf      1/1     Running   0          163m
+flask-app-54bddcd89d-8695l      1/1     Running   0          163m
+flask-app-54bddcd89d-bft54      1/1     Running   0          163m
+postgres-0                      1/1     Running   0          28d
+~/simpleapp$ 
+:~/simpleapp$ kubectl set image deployment/flask-app-v2 flask-container=justsanjeev/application-larch:v2
+Error from server (NotFound): deployments.apps "flask-app-v2" not found
+~/simpleapp$ kubectl get deployment
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+city-backend   2/2     2            2           28d
+flask-app      3/3     3            3           8h
+~/simpleapp$ kubectl set image deployment/flask-app flask-container=justsanjeev/application-larch:v2
+deployment.apps/flask-app image updated
+:~/simpleapp$ kubectl get pods
+NAME                            READY   STATUS    RESTARTS   AGE
+city-backend-7987544dd5-8rxcc   1/1     Running   0          28d
+city-backend-7987544dd5-kj5vm   1/1     Running   0          28d
+flask-app-c4dcffb45-nhvtq       1/1     Running   0          16s
+flask-app-c4dcffb45-sqrs8       1/1     Running   0          19s
+flask-app-c4dcffb45-wqwzq       1/1     Running   0          19s
+postgres-0                      1/1     Running   0          28d
+
+```
 ---
 
 # Technologies Used
