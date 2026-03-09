@@ -236,9 +236,10 @@ kubectl get endpoints flask-service
 Example:
 
 ```
-flask-service   192.168.86.8:3000
-                192.168.86.9:3000
-                192.168.91.206:3000
+delphix@ubuntu-20-04:~$ kubectl get endpoints flask-service
+NAME            ENDPOINTS                                                   AGE
+flask-service   192.168.86.10:3000,192.168.86.11:3000,192.168.91.207:3000   47h
+delphix@ubuntu-20-04:~$ 
 ```
 
 ---
